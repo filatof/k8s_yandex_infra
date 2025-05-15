@@ -58,15 +58,33 @@
     - name: install python3-debian
       apt: name=python3-debian state=present 
 
-    - name: Add Kubernetes APT repository
-      ansible.builtin.deb822_repository:
-        name: kubernetes
-        types: [deb]
-        uris: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/"
-        signed_by: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key"
-        suites: [/]
+    # - name: Add Kubernetes APT repository
+    #   ansible.builtin.deb822_repository:
+    #     name: kubernetes
+    #     types: [deb]
+    #     uris: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/"
+    #     signed_by: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key"
+    #     suites: [/]
+    #     state: present
+    #     enabled: yes
+    - name: Ensure keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Kubernetes GPG key
+      ansible.builtin.get_url:
+        url: https://pkgs.k8s.io/core/stable/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+        mode: '0644'
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core/stable/deb/ stable main"
+        filename: kubernetes
         state: present
-        enabled: yes
+        update_cache: yes
 
     - name: install kubelet
       apt:
@@ -105,38 +123,38 @@
         chmod 700 get_helm.sh
         ./get_helm.sh
 
-- name: Install haproxy
-  hosts: lb
-  become: true
-  gather_facts: true
-  vars:
-    my_file: /etc/haproxy/haproxy.cfg
-    my_template: templates/haproxy.j2
-  tasks:
-    - name: gather facts from the control_plane
-      tags: [ 'control_plane' ]
-      setup:
-      delegate_to: "{{item}}"
-      delegate_facts: True
-      with_items: "{{groups['control_plane']}}"
-    - name: install haproxy
-      apt:
-        name: haproxy
-        state: present
-        update_cache: true
-        force: yes
-    - name: Stop haproxy service
-      service:
-        name: haproxy
-        state: stopped
-    - name: Create "{{ my_file }}"
-      ansible.builtin.template:
-        src: "{{ my_template }}"
-        dest: "{{ my_file }}"
-        owner: root
-        group: root
-        mode: "0644"
-    - name: start haproxy service
-      service:
-        name: haproxy
-        state: started
+# - name: Install haproxy
+#   hosts: lb
+#   become: true
+#   gather_facts: true
+#   vars:
+#     my_file: /etc/haproxy/haproxy.cfg
+#     my_template: templates/haproxy.j2
+#   tasks:
+#     - name: gather facts from the control_plane
+#       tags: [ 'control_plane' ]
+#       setup:
+#       delegate_to: "{{item}}"
+#       delegate_facts: True
+#       with_items: "{{groups['control_plane']}}"
+#     - name: install haproxy
+#       apt:
+#         name: haproxy
+#         state: present
+#         update_cache: true
+#         force: yes
+#     - name: Stop haproxy service
+#       service:
+#         name: haproxy
+#         state: stopped
+#     - name: Create "{{ my_file }}"
+#       ansible.builtin.template:
+#         src: "{{ my_template }}"
+#         dest: "{{ my_file }}"
+#         owner: root
+#         group: root
+#         mode: "0644"
+#     - name: start haproxy service
+#       service:
+#         name: haproxy
+#         state: started
