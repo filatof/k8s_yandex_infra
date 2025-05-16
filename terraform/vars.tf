@@ -18,3 +18,10 @@ variable "yc_folder_id" {
   default     = "b1g7qh7t0i4sftogmaue"
 }
 
+variable "master" {
+  default = 3  
+}
+
+variable "worker" {
+  default = 1
+}
