@@ -25,3 +25,7 @@ variable "master" {
 variable "worker" {
   default = 1
 }
+
+variable "lb" {
+  default = 1
+}

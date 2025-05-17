@@ -5,7 +5,7 @@
 
   tasks:
     - name: Create containerd config file
-      file:
+      ansible.builtin.file:
         path: "/etc/modules-load.d/containerd.conf"
         state: "touch"
 
@@ -58,44 +58,50 @@
     - name: install python3-debian
       apt: name=python3-debian state=present 
 
-    # - name: Add Kubernetes APT repository
-    #   ansible.builtin.deb822_repository:
-    #     name: kubernetes
-    #     types: [deb]
-    #     uris: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/"
-    #     signed_by: "https://pkgs.k8s.io/core:/stable:/v1.26/deb/Release.key"
-    #     suites: [/]
-    #     state: present
-    #     enabled: yes
-    - name: Ensure keyrings directory exists
-      ansible.builtin.file:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+
+    - name: Create directory for Kubernetes keyring
+      file:
         path: /etc/apt/keyrings
         state: directory
         mode: '0755'
 
     - name: Download Kubernetes GPG key
-      ansible.builtin.get_url:
-        url: https://pkgs.k8s.io/core/stable/deb/Release.key
-        dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
-        mode: '0644'
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-    - name: Add Kubernetes apt repository
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core/stable/deb/ stable main"
-        filename: kubernetes
+    - name: Add Kubernetes APT repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
         state: present
-        update_cache: yes
+        filename: kubernetes
 
     - name: install kubelet
       apt:
-        name: kubelet=1.26.11-1.1
+        name: kubelet
         state: present
         update_cache: true
         force: yes
 
     - name: install kubeadm
       apt:
-        name: kubeadm=1.26.11-1.1
+        name: kubeadm
+        state: present
+        force: yes
+
+    - name: install kubectl
+      apt:
+        name: kubectl
         state: present
         force: yes
     
@@ -105,12 +111,15 @@
         daemon_reload: true
         name: kubelet
 
-- hosts: control_plane
-  become: yes
-  tasks:
-    - name: install kubectl
-      apt:
-        name: kubectl=1.26.11-1.1
+    - name: Install keepalived
+      ansible.builtin.apt:
+        name:  keepalived
+        state: present
+        force: yes
+
+    - name: Install haproxy
+      ansible.builtin.apt:
+        name: haproxy
         state: present
         force: yes
 

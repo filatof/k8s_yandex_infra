@@ -1,7 +1,7 @@
 
 resource "yandex_compute_disk" "disk_worker" {
   count = var.worker
-  name     = "boot-disk-${count.index + 1}"
+  name     = "boot-disk-worker-${count.index + 1}"
   type     = "network-hdd"
   zone     = "ru-central1-a"
   size     = "50"
@@ -11,6 +11,7 @@ resource "yandex_compute_disk" "disk_worker" {
 resource "yandex_compute_instance" "worker" {
   count = var.worker
   platform_id = "standard-v3"
+  zone     = "ru-central1-a"
   name = "worker${count.index + 1}"
   hostname = "worker${count.index + 1}"
   resources {
@@ -23,10 +24,9 @@ resource "yandex_compute_instance" "worker" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.subnet-a.id
+    subnet_id = yandex_vpc_subnet.k8s-subnet-1.id
     ip_address = "192.168.10.${60 + count.index + 1}"
     #nat = count.index < 1 ? true : false  # Для первого белый ip для остальных серый
-    nat = true
   }
 
   metadata = {
