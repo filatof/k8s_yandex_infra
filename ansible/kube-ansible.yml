@@ -10,25 +10,25 @@
         state: "touch"
 
     - name: Add conf for containerd
-      blockinfile:
+      ansible.builtin.blockinfile:
         path: "/etc/modules-load.d/containerd.conf"
         block: |
           overlay
           br_netfilter
 
     - name: modprobe
-      shell: |
+      ansible.builtin.shell: |
         sudo modprobe overlay
         sudo modprobe br_netfilter
 
 
     - name: Set system configurations for Kubernetes networking
-      file:
+      ansible.builtin.file:
         path: "/etc/sysctl.d/99-kubernetes-cri.conf"
         state: "touch"
 
     - name: Add conf for containerd
-      blockinfile:
+      ansible.builtin.blockinfile:
         path: "/etc/sysctl.d/99-kubernetes-cri.conf"
         block: |
           net.bridge.bridge-nf-call-iptables = 1
@@ -36,30 +36,30 @@
           net.bridge.bridge-nf-call-ip6tables = 1
 
     - name: Apply new settings
-      command: sudo sysctl --system
+      ansible.builtin.command: sudo sysctl --system
 
     - name: install containerd
-      shell: |
+      ansible.builtin.shell: |
         sudo apt-get update && sudo apt-get install -y containerd
         sudo mkdir -p /etc/containerd
         sudo containerd config default | sudo tee /etc/containerd/config.toml
         sudo systemctl restart containerd
 
     - name: Remove swapfile from /etc/fstab
-      mount:
+      ansible.builtin.mount:
         name: swap
         fstype: swap
         state: absent
 
     - name: Disable swap
-      command: swapoff -a
+      ansible.builtin.command: swapoff -a
       when: ansible_swaptotal_mb > 0
 
     - name: install python3-debian
-      apt: name=python3-debian state=present 
+      ansible.builtin.apt: name=python3-debian state=present 
 
     - name: Ensure required packages are installed
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -69,38 +69,38 @@
         update_cache: yes
 
     - name: Create directory for Kubernetes keyring
-      file:
+      ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
         mode: '0755'
 
     - name: Download Kubernetes GPG key
-      shell: |
+      ansible.builtin.shell: |
         curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
       args:
         creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
     - name: Add Kubernetes APT repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /"
         state: present
         filename: kubernetes
 
     - name: install kubelet
-      apt:
+      ansible.builtin.apt:
         name: kubelet
         state: present
         update_cache: true
         force: yes
 
     - name: install kubeadm
-      apt:
+      ansible.builtin.apt:
         name: kubeadm
         state: present
         force: yes
 
     - name: install kubectl
-      apt:
+      ansible.builtin.apt:
         name: kubectl
         state: present
         force: yes
@@ -111,59 +111,47 @@
         daemon_reload: true
         name: kubelet
 
-    - name: Install keepalived
-      ansible.builtin.apt:
-        name:  keepalived
-        state: present
-        force: yes
-
-    - name: Install haproxy
-      ansible.builtin.apt:
-        name: haproxy
-        state: present
-        force: yes
-
 - hosts: control_plane
   become: yes
   tasks:
     - name: install helm
-      shell: |
+      ansible.builtin.shell: |
         curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
         chmod 700 get_helm.sh
         ./get_helm.sh
 
-# - name: Install haproxy
-#   hosts: lb
-#   become: true
-#   gather_facts: true
-#   vars:
-#     my_file: /etc/haproxy/haproxy.cfg
-#     my_template: templates/haproxy.j2
-#   tasks:
-#     - name: gather facts from the control_plane
-#       tags: [ 'control_plane' ]
-#       setup:
-#       delegate_to: "{{item}}"
-#       delegate_facts: True
-#       with_items: "{{groups['control_plane']}}"
-#     - name: install haproxy
-#       apt:
-#         name: haproxy
-#         state: present
-#         update_cache: true
-#         force: yes
-#     - name: Stop haproxy service
-#       service:
-#         name: haproxy
-#         state: stopped
-#     - name: Create "{{ my_file }}"
-#       ansible.builtin.template:
-#         src: "{{ my_template }}"
-#         dest: "{{ my_file }}"
-#         owner: root
-#         group: root
-#         mode: "0644"
-#     - name: start haproxy service
-#       service:
-#         name: haproxy
-#         state: started
+- name: Install haproxy
+  hosts: lb
+  become: true
+  gather_facts: true
+  vars:
+    my_file: /etc/haproxy/haproxy.cfg
+    my_template: templates/haproxy.j2
+  tasks:
+    - name: gather facts from the control_plane
+      tags: [ 'control_plane' ]
+      setup:
+      delegate_to: "{{item}}"
+      delegate_facts: True
+      with_items: "{{groups['control_plane']}}"
+    - name: install haproxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: true
+        force: yes
+    - name: Stop haproxy service
+      service:
+        name: haproxy
+        state: stopped
+    - name: Create "{{ my_file }}"
+      ansible.builtin.template:
+        src: "{{ my_template }}"
+        dest: "{{ my_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+    - name: start haproxy service
+      service:
+        name: haproxy
+        state: started
