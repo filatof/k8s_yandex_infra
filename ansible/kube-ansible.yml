@@ -130,18 +130,18 @@
   tasks:
     - name: gather facts from the control_plane
       tags: [ 'control_plane' ]
-      setup:
+      ansible.builtin.setup:
       delegate_to: "{{item}}"
       delegate_facts: True
       with_items: "{{groups['control_plane']}}"
     - name: install haproxy
-      apt:
+      ansible.builtin.apt:
         name: haproxy
         state: present
         update_cache: true
         force: yes
     - name: Stop haproxy service
-      service:
+      ansible.builtin.service:
         name: haproxy
         state: stopped
     - name: Create "{{ my_file }}"
@@ -152,6 +152,6 @@
         group: root
         mode: "0644"
     - name: start haproxy service
-      service:
+      ansible.builtin.service:
         name: haproxy
         state: started
